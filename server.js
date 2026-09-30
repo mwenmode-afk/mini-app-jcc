@@ -45,7 +45,7 @@ body{font-family:system-ui,-apple-system,Roboto,sans-serif;color:var(--txt);min-
   </div>
   <div class="glass">
     <h2>🎁 Cartes</h2>
-    <div id="codes"></div>
+    <div id="codes">Chargement...</div>
   </div>
 </div>
 
@@ -53,31 +53,31 @@ body{font-family:system-ui,-apple-system,Roboto,sans-serif;color:var(--txt);min-
 const tg = window.Telegram?.WebApp;
 if(tg) { tg.ready(); tg.expand(); }
 
-async function load() {
-  try {
-    const res = await fetch('/api/cards');
-    const cards = await res.json();
-    const div = document.getElementById('codes');
-    
-    if(!cards || cards.length === 0) {
-      div.innerHTML = '<div class="empty">Aucun code</div>';
-      return;
-    }
-    
-    div.innerHTML = cards.map(c => \`
-      <div class="card">
-        <div class="card-brand">\${c.brand}</div>
-        <div class="card-price">\${c.amount}€</div>
-        <div class="card-code">Code: \${c.code}</div>
-      </div>
-    \`).join('');
-  } catch(e) {
-    document.getElementById('codes').innerHTML = '<div class="empty">Erreur</div>';
-  }
+function loadCodes() {
+  fetch('/api/cards')
+    .then(r => r.json())
+    .then(cards => {
+      const div = document.getElementById('codes');
+      if(!cards || cards.length === 0) {
+        div.innerHTML = '<div class="empty">Aucun code</div>';
+        return;
+      }
+      div.innerHTML = cards.map(c => \`
+        <div class="card">
+          <div class="card-brand">\${c.brand}</div>
+          <div class="card-price">\${c.amount}€</div>
+          <div class="card-code">Code: \${c.code}</div>
+        </div>
+      \`).join('');
+    })
+    .catch(e => {
+      document.getElementById('codes').innerHTML = '<div class="empty">Erreur de chargement</div>';
+      console.error(e);
+    });
 }
 
-load();
-setInterval(load, 3000);
+loadCodes();
+setInterval(loadCodes, 2000);
 <\/script>
 </body>
 </html>`);
