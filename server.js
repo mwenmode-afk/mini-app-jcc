@@ -12,32 +12,25 @@ app.use(express.json());
 app.use(cors());
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = '/tmp/data';
 
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+// Stockage en mémoire
+let cards = [];
+let orders = [];
 
 function readCards() {
-  try {
-    const data = fs.readFileSync(path.join(dataDir, 'cards.json'), 'utf-8');
-    return JSON.parse(data);
-  } catch (e) {
-    return [];
-  }
+  return cards;
 }
 
-function writeCards(cards) {
-  fs.writeFileSync(path.join(dataDir, 'cards.json'), JSON.stringify(cards, null, 2));
+function writeCards(newCards) {
+  cards = newCards;
 }
 
 function readOrders() {
-  try {
-    const data = fs.readFileSync(path.join(dataDir, 'orders.json'), 'utf-8');
-    return JSON.parse(data);
-  } catch (e) {
-    return [];
-  }
+  return orders;
+}
+
+function writeOrders(newOrders) {
+  orders = newOrders;
 }
 
 function writeOrders(orders) {
