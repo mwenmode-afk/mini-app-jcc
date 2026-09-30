@@ -1,9 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 dotenv.config();
 
@@ -11,40 +8,20 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Stockage simple en mémoire
+let cardsDB = [
+  { id: '1', brand: 'Exemple', amount: 50, code: 'TESTCODE123', status: 'available', createdAt: new Date().toISOString() }
+];
 
-// Stockage en mémoire
-let cards = [];
-let orders = [];
-
-function readCards() {
-  return cards;
-}
-
-function writeCards(newCards) {
-  cards = newCards;
-}
-
-function readOrders() {
-  return orders;
-}
-
-function writeOrders(newOrders) {
-  orders = newOrders;
-}
-
-function writeOrders(orders) {
-  fs.writeFileSync(path.join(dataDir, 'orders.json'), JSON.stringify(orders, null, 2));
-}
-
+// Mini-app
 app.get('/', (req, res) => {
-  const html = `<!DOCTYPE html>
+  res.send(`<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#101a3c">
-<title>Jérémy CC · Cartes cadeaux</title>
+<title>Jérémy CC</title>
 <script src="https://telegram.org/js/telegram-web-app.js"><\/script>
 <style>
 :root{--bg1:#12204a; --bg2:#1a2258; --bg3:#2a1f5c; --glass:rgba(34,50,110,.52); --txt:#eef2ff; --blue:#3d63e6; --blue-hi:#7fa2ff;}
@@ -54,16 +31,13 @@ body{font-family:system-ui,-apple-system,Roboto,sans-serif;color:var(--txt);min-
 .wrap{max-width:560px;margin:0 auto}
 .head{text-align:center;padding:20px 0}
 .head .name{font-weight:800;font-size:18px;color:var(--blue-hi);text-transform:uppercase}
-.glass{background:var(--glass);border:1px solid rgba(122,152,255,.30);border-radius:16px;padding:30px;text-align:center;backdrop-filter:blur(16px)}
-.glass h2{margin:10px 0;font-size:24px}
-.glass p{margin:8px 0;color:#93a4d6;font-size:14px}
-.card{background:rgba(61,99,230,.1);border:1px solid rgba(61,99,230,.3);border-radius:12px;padding:15px;margin:10px 0;text-align:left}
+.glass{background:var(--glass);border:1px solid rgba(122,152,255,.30);border-radius:16px;padding:30px;backdrop-filter:blur(16px)}
+.glass h2{margin:10px 0;font-size:24px;color:var(--txt)}
+.card{background:rgba(61,99,230,.2);border:1px solid rgba(61,99,230,.5);border-radius:12px;padding:15px;margin:10px 0;text-align:left}
 .card-brand{font-weight:800;color:var(--blue-hi);font-size:16px}
-.card-price{font-size:20px;font-weight:800;color:#5fe3a6;margin:8px 0}
-.card-code{font-family:monospace;color:#93a4d6;font-size:12px;word-break:break-all}
-.cta{width:100%;height:50px;margin-top:20px;border-radius:14px;background:var(--blue);color:white;border:none;font-weight:800;cursor:pointer}
-.cta:hover{filter:brightness(1.1)}
-.empty{color:#93a4d6;padding:20px;text-align:center}
+.card-price{font-size:22px;font-weight:800;color:#5fe3a6;margin:8px 0}
+.card-code{font-family:monospace;color:#93a4d6;font-size:12px;word-break:break-all;background:rgba(0,0,0,.2);padding:8px;border-radius:4px;margin-top:8px}
+.empty{color:#93a4d6;padding:20px;text-align:center;font-size:14px}
 </style>
 </head>
 <body>
@@ -72,57 +46,53 @@ body{font-family:system-ui,-apple-system,Roboto,sans-serif;color:var(--txt);min-
     <div class="name">Jérémy CC</div>
   </div>
   <div class="glass">
-    <h2>🎁 Cartes Cadeaux</h2>
+    <h2>🎁 Cartes</h2>
     <div id="codes"></div>
   </div>
 </div>
 
 <script>
 const tg = window.Telegram?.WebApp;
-if(tg) {
-  tg.ready();
-  tg.expand();
-}
+if(tg) { tg.ready(); tg.expand(); }
 
-async function loadCodes() {
+async function load() {
   try {
     const res = await fetch('/api/cards');
     const cards = await res.json();
-    const codesDiv = document.getElementById('codes');
+    const div = document.getElementById('codes');
     
-    if(!cards.length) {
-      codesDiv.innerHTML = '<div class="empty">Aucun code disponible</div>';
+    if(!cards || cards.length === 0) {
+      div.innerHTML = '<div class="empty">Aucun code</div>';
       return;
     }
     
-    codesDiv.innerHTML = cards
-      .filter(c => c.status === 'available')
-      .map(c => \`
-        <div class="card">
-          <div class="card-brand">\${c.brand}</div>
-          <div class="card-price">\${c.amount}€</div>
-          <div class="card-code">\${c.code}</div>
-        </div>
-      \`).join('');
+    div.innerHTML = cards.map(c => \`
+      <div class="card">
+        <div class="card-brand">\${c.brand}</div>
+        <div class="card-price">\${c.amount}€</div>
+        <div class="card-code">Code: \${c.code}</div>
+      </div>
+    \`).join('');
   } catch(e) {
-    document.getElementById('codes').innerHTML = '<div class="empty">Erreur de chargement</div>';
+    document.getElementById('codes').innerHTML = '<div class="empty">Erreur</div>';
   }
 }
 
-loadCodes();
-setInterval(loadCodes, 5000);
+load();
+setInterval(load, 3000);
 <\/script>
 </body>
-</html>`;
-  res.send(html);
+</html>`);
 });
+
+// Panel admin
 app.get('/admin', (req, res) => {
-  const html = `<!DOCTYPE html>
+  res.send(`<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin - Jérémy CC</title>
+<title>Admin</title>
 <style>
 :root{--bg:#12204a;--txt:#eef2ff;--blue:#3d63e6;--glass:rgba(34,50,110,.52)}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -131,39 +101,33 @@ body{font-family:system-ui,-apple-system,Roboto,sans-serif;color:var(--txt);back
 .container{max-width:900px;margin:0 auto}
 .header{text-align:center;padding:30px 0}
 .header h1{font-size:28px;margin-bottom:5px}
-.header p{color:#93a4d6;font-size:14px}
 .glass{background:var(--glass);border:1px solid rgba(122,152,255,.30);border-radius:14px;padding:25px;margin:20px 0;backdrop-filter:blur(16px)}
 .login-form{max-width:400px;margin:0 auto}
 .input-group{margin-bottom:15px}
 .input-group label{display:block;font-size:12px;font-weight:700;color:#7fa2ff;margin-bottom:5px;text-transform:uppercase}
 .input-group input{width:100%;padding:12px;border:1px solid rgba(122,152,255,.30);border-radius:8px;background:rgba(0,0,0,.2);color:var(--txt);font-size:14px}
 .input-group input:focus{outline:none;border-color:var(--blue)}
-button{width:100%;padding:12px;background:var(--blue);color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-top:10px;font-size:14px}
+button{width:100%;padding:12px;background:var(--blue);color:white;border:none;border-radius:8px;font-weight:800;cursor:pointer;margin-top:10px}
 button:hover{filter:brightness(1.1)}
 button.small{width:auto;padding:6px 12px;font-size:12px;margin:0}
 button.danger{background:#ff6b6b}
 .tabs{display:flex;gap:10px;margin:20px 0;flex-wrap:wrap}
-.tab-btn{padding:10px 16px;background:rgba(34,50,110,.52);border:1px solid rgba(122,152,255,.30);border-radius:8px;color:var(--txt);cursor:pointer;font-size:13px}
-.tab-btn.active{background:var(--blue);border-color:var(--blue)}
+.tab-btn{padding:10px 16px;background:rgba(34,50,110,.52);border:1px solid rgba(122,152,255,.30);border-radius:8px;color:var(--txt);cursor:pointer}
+.tab-btn.active{background:var(--blue)}
 .tab-content{display:none}
 .tab-content.active{display:block}
 table{width:100%;border-collapse:collapse;margin-top:15px;font-size:13px}
 table th{padding:12px;text-align:left;border-bottom:1px solid rgba(122,152,255,.30);font-weight:700;color:#7fa2ff}
 table td{padding:12px;border-bottom:1px solid rgba(122,152,255,.30)}
-.msg{padding:15px;border-radius:8px;margin:10px 0;text-align:center;font-size:14px}
+.msg{padding:15px;border-radius:8px;margin:10px 0;text-align:center}
 .msg.success{background:rgba(95,227,166,.1);color:#5fe3a6}
 .msg.error{background:rgba(255,107,107,.1);color:#ff6b6b}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin:20px 0}
-.stat{background:rgba(95,227,166,.1);padding:20px;border-radius:8px;text-align:center}
-.stat-num{font-size:28px;font-weight:800;color:#5fe3a6}
-.stat-label{font-size:12px;color:#93a4d6;margin-top:5px}
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h1>🔐 Panel Admin</h1>
-    <p>Gère tes codes cadeaux</p>
+    <h1>🔐 Admin Panel</h1>
   </div>
 
   <div id="loginPanel" class="glass login-form">
@@ -173,65 +137,45 @@ table td{padding:12px;border-bottom:1px solid rgba(122,152,255,.30)}
     </div>
     <div class="input-group">
       <label>Password</label>
-      <input type="password" id="password" placeholder="Mot de passe">
+      <input type="password" id="password" placeholder="password">
     </div>
-    <button onclick="login()">Se connecter</button>
+    <button onclick="login()">Login</button>
     <div id="loginMsg"></div>
   </div>
 
   <div id="adminPanel" style="display:none">
     <div class="tabs">
-      <button class="tab-btn active" onclick="showTab(event, 'dashboard')">📊 Dashboard</button>
-      <button class="tab-btn" onclick="showTab(event, 'add')">➕ Ajouter</button>
-      <button class="tab-btn" onclick="showTab(event, 'codes')">📝 Codes</button>
-      <button class="tab-btn danger" onclick="logout()">Déconnexion</button>
+      <button class="tab-btn active" onclick="switchTab(event, 'add')">➕ Add Code</button>
+      <button class="tab-btn" onclick="switchTab(event, 'list')">📝 List</button>
+      <button class="tab-btn danger" onclick="logout()">Logout</button>
     </div>
 
-    <div id="dashboard" class="tab-content active glass">
-      <h2>📊 Dashboard</h2>
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-num" id="totalCards">0</div>
-          <div class="stat-label">Codes totaux</div>
-        </div>
-        <div class="stat">
-          <div class="stat-num" id="availableCards">0</div>
-          <div class="stat-label">Disponibles</div>
-        </div>
-        <div class="stat">
-          <div class="stat-num" id="soldCards">0</div>
-          <div class="stat-label">Vendus</div>
-        </div>
-      </div>
-    </div>
-
-    <div id="add" class="tab-content glass">
-      <h2>➕ Ajouter un code cadeau</h2>
+    <div id="add" class="tab-content active glass">
+      <h2>Add Gift Card</h2>
       <div class="input-group">
-        <label>Marque</label>
-        <input type="text" id="brandInput" placeholder="Amazon">
+        <label>Brand</label>
+        <input type="text" id="brand" placeholder="Amazon">
       </div>
       <div class="input-group">
-        <label>Montant (€)</label>
-        <input type="number" id="amountInput" placeholder="25">
+        <label>Amount (€)</label>
+        <input type="number" id="amount" placeholder="25">
       </div>
       <div class="input-group">
         <label>Code</label>
-        <input type="text" id="codeInput" placeholder="ABC123">
+        <input type="text" id="code" placeholder="ABC123XYZ">
       </div>
-      <button onclick="addCode()">Ajouter</button>
+      <button onclick="addCode()">Add</button>
       <div id="addMsg"></div>
     </div>
 
-    <div id="codes" class="tab-content glass">
-      <h2>📝 Tous les codes</h2>
-      <table id="codesTable">
+    <div id="list" class="tab-content glass">
+      <h2>Codes List</h2>
+      <table id="table">
         <thead>
           <tr>
-            <th>Marque</th>
-            <th>Montant</th>
+            <th>Brand</th>
+            <th>Amount</th>
             <th>Code</th>
-            <th>Status</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -244,172 +188,113 @@ table td{padding:12px;border-bottom:1px solid rgba(122,152,255,.30)}
 <script>
 const ADMIN_USER = 'admin';
 const ADMIN_PASS = 'SecureAdminPass2024!$';
-let authenticated = false;
+let auth = false;
 
 function login() {
-  const user = document.getElementById('username').value;
-  const pass = document.getElementById('password').value;
-  const msg = document.getElementById('loginMsg');
-  
-  if(user === ADMIN_USER && pass === ADMIN_PASS) {
-    authenticated = true;
+  const u = document.getElementById('username').value;
+  const p = document.getElementById('password').value;
+  if(u === ADMIN_USER && p === ADMIN_PASS) {
+    auth = true;
     document.getElementById('loginPanel').style.display = 'none';
     document.getElementById('adminPanel').style.display = 'block';
-    loadDashboard();
+    loadList();
   } else {
-    msg.innerHTML = '<div class="msg error">❌ Identifiants incorrects</div>';
+    document.getElementById('loginMsg').innerHTML = '<div class="msg error">❌ Wrong</div>';
   }
 }
 
 function logout() {
-  authenticated = false;
+  auth = false;
   document.getElementById('loginPanel').style.display = 'block';
   document.getElementById('adminPanel').style.display = 'none';
-  document.getElementById('username').value = '';
-  document.getElementById('password').value = '';
 }
 
-function showTab(e, tab) {
+function switchTab(e, tab) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(tab).classList.add('active');
   e.target.classList.add('active');
-  
-  if(tab === 'codes') loadCodes();
-  if(tab === 'dashboard') loadDashboard();
-}
-
-async function loadDashboard() {
-  try {
-    const res = await fetch('/api/cards');
-    const cards = await res.json();
-    const total = cards.length;
-    const available = cards.filter(c => c.status === 'available').length;
-    const sold = cards.filter(c => c.status === 'sold').length;
-    
-    document.getElementById('totalCards').textContent = total;
-    document.getElementById('availableCards').textContent = available;
-    document.getElementById('soldCards').textContent = sold;
-  } catch(e) {
-    console.error(e);
-  }
+  if(tab === 'list') loadList();
 }
 
 async function addCode() {
-  const brand = document.getElementById('brandInput').value;
-  const amount = document.getElementById('amountInput').value;
-  const code = document.getElementById('codeInput').value;
+  const brand = document.getElementById('brand').value;
+  const amount = document.getElementById('amount').value;
+  const code = document.getElementById('code').value;
   const msg = document.getElementById('addMsg');
   
   if(!brand || !amount || !code) {
-    msg.innerHTML = '<div class="msg error">❌ Remplis tous les champs</div>';
+    msg.innerHTML = '<div class="msg error">❌ Fill all fields</div>';
     return;
   }
   
-  try {
-    const res = await fetch('/api/cards', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({brand, amount: Number(amount), code})
-    });
-    
-    if(res.ok) {
-      msg.innerHTML = '<div class="msg success">✅ Code ajouté!</div>';
-      document.getElementById('brandInput').value = '';
-      document.getElementById('amountInput').value = '';
-      document.getElementById('codeInput').value = '';
-      setTimeout(() => msg.innerHTML = '', 2000);
-      loadDashboard();
-    }
-  } catch(e) {
-    msg.innerHTML = '<div class="msg error">❌ Erreur</div>';
+  const res = await fetch('/api/cards', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({brand, amount: Number(amount), code})
+  });
+  
+  if(res.ok) {
+    msg.innerHTML = '<div class="msg success">✅ Added!</div>';
+    document.getElementById('brand').value = '';
+    document.getElementById('amount').value = '';
+    document.getElementById('code').value = '';
+    loadList();
   }
 }
 
-async function loadCodes() {
-  try {
-    const res = await fetch('/api/cards');
-    const cards = await res.json();
-    const tbody = document.querySelector('#codesTable tbody');
-    
-    if(!cards.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Aucun code</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = cards.map(c => \`
-      <tr>
-        <td>\${c.brand}</td>
-        <td>\${c.amount}€</td>
-        <td>\${c.code}</td>
-        <td>\${c.status === 'available' ? '✅' : '❌'}</td>
-        <td><button class="small danger" onclick="deleteCode('\${c.id}')">X</button></td>
-      </tr>
-    \`).join('');
-  } catch(e) {
-    console.error(e);
-  }
+async function loadList() {
+  const res = await fetch('/api/cards');
+  const cards = await res.json();
+  const tbody = document.querySelector('#table tbody');
+  
+  tbody.innerHTML = cards.map(c => \`
+    <tr>
+      <td>\${c.brand}</td>
+      <td>\${c.amount}€</td>
+      <td>\${c.code}</td>
+      <td><button class="small danger" onclick="del('\${c.id}')">X</button></td>
+    </tr>
+  \`).join('');
 }
 
-async function deleteCode(id) {
-  if(!confirm('Supprimer?')) return;
-  try {
-    await fetch('/api/cards/' + id, {method: 'DELETE'});
-    loadCodes();
-    loadDashboard();
-  } catch(e) {
-    alert('Erreur');
-  }
+async function del(id) {
+  if(!confirm('Delete?')) return;
+  await fetch('/api/cards/' + id, {method: 'DELETE'});
+  loadList();
 }
 <\/script>
 </body>
-</html>`;
-  res.send(html);
+</html>`);
 });
 
+// API
 app.post('/api/cards', (req, res) => {
-  try {
-    const { brand, amount, code } = req.body;
-    const cards = readCards();
-    const newCard = {
-      id: Date.now().toString(),
-      brand,
-      amount,
-      code,
-      status: 'available',
-      createdAt: new Date().toISOString()
-    };
-    cards.push(newCard);
-    writeCards(cards);
-    res.json({ success: true, card: newCard });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  const { brand, amount, code } = req.body;
+  const card = {
+    id: Date.now().toString(),
+    brand,
+    amount,
+    code,
+    status: 'available',
+    createdAt: new Date().toISOString()
+  };
+  cardsDB.push(card);
+  res.json({ success: true, card });
 });
 
 app.get('/api/cards', (req, res) => {
-  try {
-    const cards = readCards();
-    res.json(cards.reverse());
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  res.json(cardsDB);
 });
 
 app.delete('/api/cards/:id', (req, res) => {
-  try {
-    const cards = readCards();
-    const filtered = cards.filter(c => c.id !== req.params.id);
-    writeCards(filtered);
-    res.json({ success: true });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  cardsDB = cardsDB.filter(c => c.id !== req.params.id);
+  res.json({ success: true });
 });
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ ok: true });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Running on ${PORT}`));
