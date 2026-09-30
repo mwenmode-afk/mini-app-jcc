@@ -64,8 +64,13 @@ body{font-family:system-ui,-apple-system,Roboto,sans-serif;color:var(--txt);min-
 .glass{background:var(--glass);border:1px solid rgba(122,152,255,.30);border-radius:16px;padding:30px;text-align:center;backdrop-filter:blur(16px)}
 .glass h2{margin:10px 0;font-size:24px}
 .glass p{margin:8px 0;color:#93a4d6;font-size:14px}
+.card{background:rgba(61,99,230,.1);border:1px solid rgba(61,99,230,.3);border-radius:12px;padding:15px;margin:10px 0;text-align:left}
+.card-brand{font-weight:800;color:var(--blue-hi);font-size:16px}
+.card-price{font-size:20px;font-weight:800;color:#5fe3a6;margin:8px 0}
+.card-code{font-family:monospace;color:#93a4d6;font-size:12px;word-break:break-all}
 .cta{width:100%;height:50px;margin-top:20px;border-radius:14px;background:var(--blue);color:white;border:none;font-weight:800;cursor:pointer}
 .cta:hover{filter:brightness(1.1)}
+.empty{color:#93a4d6;padding:20px;text-align:center}
 </style>
 </head>
 <body>
@@ -74,17 +79,50 @@ body{font-family:system-ui,-apple-system,Roboto,sans-serif;color:var(--txt);min-
     <div class="name">Jérémy CC</div>
   </div>
   <div class="glass">
-    <h2>🎉 Bienvenue!</h2>
-    <p>Boutique de cartes cadeaux</p>
-    <p style="margin-top:15px;color:#93a4d6;font-size:13px">Codes: Amazon, Carrefour, etc.</p>
-    <button class="cta" onclick="alert('🎁 Codes à venir')">Parcourir</button>
+    <h2>🎁 Cartes Cadeaux</h2>
+    <div id="codes"></div>
   </div>
 </div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if(tg) {
+  tg.ready();
+  tg.expand();
+}
+
+async function loadCodes() {
+  try {
+    const res = await fetch('/api/cards');
+    const cards = await res.json();
+    const codesDiv = document.getElementById('codes');
+    
+    if(!cards.length) {
+      codesDiv.innerHTML = '<div class="empty">Aucun code disponible</div>';
+      return;
+    }
+    
+    codesDiv.innerHTML = cards
+      .filter(c => c.status === 'available')
+      .map(c => \`
+        <div class="card">
+          <div class="card-brand">\${c.brand}</div>
+          <div class="card-price">\${c.amount}€</div>
+          <div class="card-code">\${c.code}</div>
+        </div>
+      \`).join('');
+  } catch(e) {
+    document.getElementById('codes').innerHTML = '<div class="empty">Erreur de chargement</div>';
+  }
+}
+
+loadCodes();
+setInterval(loadCodes, 5000);
+<\/script>
 </body>
 </html>`;
   res.send(html);
 });
-
 app.get('/admin', (req, res) => {
   const html = `<!DOCTYPE html>
 <html lang="fr">
