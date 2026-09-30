@@ -1,7 +1,9 @@
 import express from 'express';
-import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
@@ -9,33 +11,39 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI, { retryWrites: true, w: 'majority' })
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB error:', err));
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dataDir = '/tmp/data';
 
-// Schémas MongoDB
-const orderSchema = new mongoose.Schema({
-  telegramId: Number,
-  items: Array,
-  total: Number,
-  currency: String,
-  status: { type: String, default: 'Envoyée' },
-  createdAt: { type: Date, default: Date.now }
-});
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
 
-const giftCardSchema = new mongoose.Schema({
-  brand: String,
-  amount: Number,
-  code: String,
-  status: { type: String, default: 'available' },
-  createdAt: { type: Date, default: Date.now }
-});
+function readCards() {
+  try {
+    const data = fs.readFileSync(path.join(dataDir, 'cards.json'), 'utf-8');
+    return JSON.parse(data);
+  } catch (e) {
+    return [];
+  }
+}
 
-const Order = mongoose.model('Order', orderSchema);
-const GiftCard = mongoose.model('GiftCard', giftCardSchema);
+function writeCards(cards) {
+  fs.writeFileSync(path.join(dataDir, 'cards.json'), JSON.stringify(cards, null, 2));
+}
 
-// Serve Mini-App
+function readOrders() {
+  try {
+    const data = fs.readFileSync(path.join(dataDir, 'orders.json'), 'utf-8');
+    return JSON.parse(data);
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeOrders(orders) {
+  fs.writeFileSync(path.join(dataDir, 'orders.json'), JSON.stringify(orders, null, 2));
+}
+
 app.get('/', (req, res) => {
   const html = `<!DOCTYPE html>
 <html lang="fr">
@@ -46,19 +54,10 @@ app.get('/', (req, res) => {
 <title>Jérémy CC · Cartes cadeaux</title>
 <script src="https://telegram.org/js/telegram-web-app.js"><\/script>
 <style>
-:root{
-  --bg1:#12204a; --bg2:#1a2258; --bg3:#2a1f5c;
-  --glass:rgba(34,50,110,.52);
-  --txt:#eef2ff;
-  --blue:#3d63e6;
-  --blue-hi:#7fa2ff;
-}
+:root{--bg1:#12204a; --bg2:#1a2258; --bg3:#2a1f5c; --glass:rgba(34,50,110,.52); --txt:#eef2ff; --blue:#3d63e6; --blue-hi:#7fa2ff;}
 *{box-sizing:border-box;margin:0;padding:0}
 html{background:var(--bg1);color-scheme:dark}
-body{font-family:system-ui,-apple-system,Roboto,sans-serif;color:var(--txt);min-height:100vh;
-  background:linear-gradient(165deg,var(--bg1),var(--bg2) 55%,var(--bg3));
-  padding:20px;
-}
+body{font-family:system-ui,-apple-system,Roboto,sans-serif;color:var(--txt);min-height:100vh;background:linear-gradient(165deg,var(--bg1),var(--bg2) 55%,var(--bg3));padding:20px;}
 .wrap{max-width:560px;margin:0 auto}
 .head{text-align:center;padding:20px 0}
 .head .name{font-weight:800;font-size:18px;color:var(--blue-hi);text-transform:uppercase}
@@ -86,7 +85,6 @@ body{font-family:system-ui,-apple-system,Roboto,sans-serif;color:var(--txt);min-
   res.send(html);
 });
 
-// Panel Admin
 app.get('/admin', (req, res) => {
   const html = `<!DOCTYPE html>
 <html lang="fr">
@@ -155,7 +153,6 @@ table td{padding:12px;border-bottom:1px solid rgba(122,152,255,.30)}
       <button class="tab-btn active" onclick="showTab(event, 'dashboard')">📊 Dashboard</button>
       <button class="tab-btn" onclick="showTab(event, 'add')">➕ Ajouter</button>
       <button class="tab-btn" onclick="showTab(event, 'codes')">📝 Codes</button>
-      <button class="tab-btn" onclick="showTab(event, 'orders')">🛒 Commandes</button>
       <button class="tab-btn danger" onclick="logout()">Déconnexion</button>
     </div>
 
@@ -210,21 +207,6 @@ table td{padding:12px;border-bottom:1px solid rgba(122,152,255,.30)}
         <tbody></tbody>
       </table>
     </div>
-
-    <div id="orders" class="tab-content glass">
-      <h2>🛒 Commandes</h2>
-      <table id="ordersTable">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Total</th>
-            <th>Status</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
   </div>
 </div>
 
@@ -263,7 +245,6 @@ function showTab(e, tab) {
   e.target.classList.add('active');
   
   if(tab === 'codes') loadCodes();
-  if(tab === 'orders') loadOrders();
   if(tab === 'dashboard') loadDashboard();
 }
 
@@ -307,6 +288,7 @@ async function addCode() {
       document.getElementById('amountInput').value = '';
       document.getElementById('codeInput').value = '';
       setTimeout(() => msg.innerHTML = '', 2000);
+      loadDashboard();
     }
   } catch(e) {
     msg.innerHTML = '<div class="msg error">❌ Erreur</div>';
@@ -330,7 +312,7 @@ async function loadCodes() {
         <td>\${c.amount}€</td>
         <td>\${c.code}</td>
         <td>\${c.status === 'available' ? '✅' : '❌'}</td>
-        <td><button class="small danger" onclick="deleteCode('\${c._id}')">X</button></td>
+        <td><button class="small danger" onclick="deleteCode('\${c.id}')">X</button></td>
       </tr>
     \`).join('');
   } catch(e) {
@@ -343,32 +325,9 @@ async function deleteCode(id) {
   try {
     await fetch('/api/cards/' + id, {method: 'DELETE'});
     loadCodes();
+    loadDashboard();
   } catch(e) {
     alert('Erreur');
-  }
-}
-
-async function loadOrders() {
-  try {
-    const res = await fetch('/api/orders');
-    const orders = await res.json();
-    const tbody = document.querySelector('#ordersTable tbody');
-    
-    if(!orders.length) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">Aucune commande</td></tr>';
-      return;
-    }
-    
-    tbody.innerHTML = orders.map(o => \`
-      <tr>
-        <td>\${o._id.slice(-6)}</td>
-        <td>\${o.total}€</td>
-        <td>\${o.status}</td>
-        <td>\${new Date(o.createdAt).toLocaleDateString()}</td>
-      </tr>
-    \`).join('');
-  } catch(e) {
-    console.error(e);
   }
 }
 <\/script>
@@ -377,65 +336,46 @@ async function loadOrders() {
   res.send(html);
 });
 
-// API: Gestion des codes cadeaux
-app.post('/api/cards', async (req, res) => {
+app.post('/api/cards', (req, res) => {
   try {
     const { brand, amount, code } = req.body;
-    const card = new GiftCard({ brand, amount, code, status: 'available' });
-    await card.save();
-    res.json({ success: true, card });
+    const cards = readCards();
+    const newCard = {
+      id: Date.now().toString(),
+      brand,
+      amount,
+      code,
+      status: 'available',
+      createdAt: new Date().toISOString()
+    };
+    cards.push(newCard);
+    writeCards(cards);
+    res.json({ success: true, card: newCard });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.get('/api/cards', async (req, res) => {
+app.get('/api/cards', (req, res) => {
   try {
-    const cards = await GiftCard.find().sort({ createdAt: -1 });
-    res.json(cards);
+    const cards = readCards();
+    res.json(cards.reverse());
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.delete('/api/cards/:id', async (req, res) => {
+app.delete('/api/cards/:id', (req, res) => {
   try {
-    await GiftCard.findByIdAndDelete(req.params.id);
+    const cards = readCards();
+    const filtered = cards.filter(c => c.id !== req.params.id);
+    writeCards(filtered);
     res.json({ success: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// API: Recevoir les commandes
-app.post('/api/order', async (req, res) => {
-  try {
-    const { items, total, currency } = req.body;
-    const order = new Order({
-      telegramId: process.env.TELEGRAM_ID,
-      items,
-      total,
-      currency,
-      status: 'Envoyée'
-    });
-    await order.save();
-    res.json({ success: true, orderId: order._id });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// API: Récupérer les commandes
-app.get('/api/orders', async (req, res) => {
-  try {
-    const orders = await Order.find({ telegramId: process.env.TELEGRAM_ID }).sort({ createdAt: -1 });
-    res.json(orders);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
