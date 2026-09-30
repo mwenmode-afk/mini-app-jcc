@@ -9,9 +9,7 @@ app.use(express.json());
 app.use(cors());
 
 // Stockage simple en mémoire
-let cardsDB = [
-  { id: '1', brand: 'Exemple', amount: 50, code: 'TESTCODE123', status: 'available', createdAt: new Date().toISOString() }
-];
+let cardsDB = [];
 
 // Mini-app
 app.get('/', (req, res) => {
