@@ -1,29 +1,18 @@
 {
-  "name": "jeremy-cc-bot",
+  "name": "jeremy-cc-mini-app",
   "version": "1.0.0",
-  "description": "Bot Telegram + Mini-app pour vendre des cartes cadeaux - Jérémy CC",
-  "main": "server.js",
+  "description": "Mini-app Telegram pour cartes cadeaux",
   "type": "module",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node --watch server.js"
   },
-  "keywords": ["telegram", "bot", "gift-cards"],
-  "author": "Jérémy CC",
-  "license": "MIT",
   "dependencies": {
-    "express": "^4.21.0",
-    "mongoose": "^8.3.0",
-    "dotenv": "^16.4.5",
-    "cors": "^2.8.5",
-    "axios": "^1.7.7",
-    "jsonwebtoken": "^9.1.2",
-    "bcryptjs": "^2.4.3",
-    "uuid": "^9.0.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.0"
+    "express": "latest",
+    "mongoose": "latest",
+    "cors": "latest",
+    "dotenv": "latest"
   },
   "engines": {
     "node": ">=18.0.0"
